@@ -3,7 +3,7 @@ section .bss
 
 section .data
         value db "42", 0
-        msg db "1337", 0
+        msg db "1337", 10
 
 section .text
 global _start
@@ -16,7 +16,7 @@ _start:
 	syscall
 
         mov al, [value]
-        mov bl, [input]
+        mov bl, [input + 1]
         cmp al, bl
         jne not_42
 
