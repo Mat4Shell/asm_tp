@@ -44,7 +44,7 @@ _start:
 	js fail	
 
 
-    	mov qword [buf], 5
+    	mov qword [buf], 1
 	xor qword [buf + 8], 0
 
 	mov rax, 54
