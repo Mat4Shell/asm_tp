@@ -1,93 +1,87 @@
-; asm08.asm
-; Sum of integers below N
-; Usage: ./asm08 N
-; Example: ./asm08 5 -> prints 10
-
+global _start
 section .bss
-    buf resb 32
+    result resb 64
 
 section .text
-    global _start
-
 _start:
-    ; argc in [rsp]
-    mov rdi, [rsp]          ; argc
-    cmp rdi, 2
-    jne bad_input
 
-    ; argv[1] -> [rsp+16]
-    mov rsi, [rsp+16]       ; argv[1]
-    mov rdi, rsi
+    mov rsi, [rsp + 16]
+    cmp rsi, 0
+    je error
 
-    ; convertir string -> entier (base 10)
-    xor rbx, rbx            ; valeur finale
-.convert_loop:
-    mov al, [rsi]
-    cmp al, 0
-    je .done_convert
-    cmp al, '0'
-    jb bad_input
-    cmp al, '9'
-    ja bad_input
-    sub al, '0'
-    imul rbx, rbx, 10
-    add rbx, rax
-    inc rsi
-    jmp .convert_loop
+    mov rax, 0
+    mov rcx, 0
 
-.done_convert:
-    ; RBX = N
-    cmp rbx, 1
-    jb .print_zero   ; si N <= 0 → somme = 0
+convert_int:
+    movzx rbx, byte [rsi + rcx] 
+    test rbx, rbx    
+    jz sum
 
-    ; somme = (N-1)*N/2
-    mov rax, rbx
-    dec rax          ; rax = N-1
-    imul rax, rbx    ; rax = (N-1)*N
-    shr rax, 1       ; divisé par 2
+    cmp rbx, 10       
+    je sum
 
-    jmp .print_result
+    cmp rbx, '0'
+    jb is_letter          
+    cmp rbx, '9'
+    ja is_letter            
 
-.print_zero:
-    xor rax, rax
+    sub rbx, '0'         
+    imul rax, rax, 10        
+    add rax, rbx          
+    inc rcx                  
+    jmp convert_int
 
-.print_result:
-    ; convertir RAX en string
-    mov rcx, buf + 31
-    mov rbx, 10
-    mov byte [rcx], 10    ; newline
-    dec rcx
-    cmp rax, 0
-    jne .convert_digit
-    mov byte [rcx], '0'
-    dec rcx
-    jmp .done_number
+sum:
+    mov rbx, 0
+    mov rcx, 1
 
-.convert_digit:
-    xor rdx, rdx          ; important avant div !
-.repeat_div:
-    div rbx               ; divise rdx:rax par rbx
-    add dl, '0'
-    mov [rcx], dl
-    dec rcx
-    test rax, rax
-    jnz .repeat_div
-
-.done_number:
+sum_loop:
+    cmp rcx, rax
+    jge print
+    add rbx, rcx
     inc rcx
-    mov rdx, buf+32
-    sub rdx, rcx
-    mov rsi, rcx
+    jmp sum_loop
+
+
+print:
+    mov rsi, result
+    add rsi, 63
+    mov byte[rsi], 0
+    mov rax, rbx
+
+
+convert_to_string:
+    mov rdx, 0
+    mov r8, 10
+    div r8
+
+    add dl, '0'
+    dec rsi
+    dec rsi
+    mov byte[rsi], dl
+
+    test rax, rax
+    jnz convert_to_string
+
     mov rax, 1
     mov rdi, 1
+    mov rdx, 64
+    mov rsi, result
     syscall
 
-    ; exit(0)
     mov rax, 60
-    xor rdi, rdi
+    mov rdi, 0
     syscall
 
-bad_input:
+is_letter:
+    mov rax, 60
+    mov rdi, 2
+    syscall
+
+error:
+    mov rax, 0
+    mov rdi, 0
+
     mov rax, 60
     mov rdi, 1
     syscall
