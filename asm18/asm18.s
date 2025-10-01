@@ -17,7 +17,7 @@ _start:
    
     mov rax, 41               ; sys_socket
     mov rdi, 2                ; AF_INET
-    mov rsi, 1                ; SOCK_STREAM
+    mov rsi, 2                ; SOCK_STREAM
     mov rdx, 0                ; protocol
     syscall
 
