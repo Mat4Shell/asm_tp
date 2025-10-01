@@ -5,7 +5,7 @@ section .data
     	server_port dw 1337
     	message db 'message: "Hello, client!"',0
 	message_len equ $-message
-	timeout db "Timeout: no response from server", 0
+	timeout db "Timeout: no response from server", 10
 	timeout_len equ $-timeout
 
 section .bss
