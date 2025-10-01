@@ -1,16 +1,16 @@
 global _start
 
 section .data
-    	server_ip db 127,0,0,1
-    	server_port dw 1337
-    	message db 'message: "Hello, client!"',0
-	message_len equ $-message
-	timeout_message db "Timeout: no response from server", 10
-	timeout_len equ $-timeout_message
+server_ip db 127,0,0,1
+server_port dw 1337
+message db 'message: "Hello, client!"',0
+message_len equ $-message
+timeout_message db "Timeout: no response from server", 10
+timeout_len equ $-timeout_message
 
 section .bss
     	sock resb 16
-	buf resb 1024
+	buf resb 128
 
 section .text
 _start:
