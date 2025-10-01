@@ -2,7 +2,6 @@ section .bss
         input resb 6
 
 section .data
-        value db "42", 0
         msg db "1337", 10
 
 section .text
@@ -15,10 +14,21 @@ _start:
 	mov rdx, 32
 	syscall
 
-        mov al, [value]
-        mov bl, [input + 1]
-        cmp al, bl
+        mov al, byte [input]
+        cmp al, '4'
         jne not_42
+
+        mov al, byte [input + 1]
+        cmp al, '2'
+        jne not_42
+
+        mov al, byte [input + 2]
+        cmp al, 10
+        jne not_42
+
+	xor rax, rax
+	xor rdi, rdi
+	xor rsi, rsi	
 
         mov rax, 1
         mov rdx, 1
@@ -31,6 +41,9 @@ _start:
         syscall
 
 not_42:
+	xor rax, rax
+	xor rdi, rdi	
+
         mov rax, 60
         mov rdi, 1
         syscall
