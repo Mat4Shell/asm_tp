@@ -1,73 +1,80 @@
-section .data
-    is_prime db 0  ; Variable pour stocker l'état de la primarité
+global _start
 
 section .bss
-	num resb 6
+    input resb 32       ; buffer pour lecture
 
 section .text
-    global _start
-
 _start:
-    ; Récupérer le nombre en entrée
-    mov rax, 0          ; sys_read
-    mov rdi, 0          ; file descriptor 0 (stdin)
-    mov rsi, num        ; pointeur vers le buffer pour stocker le nombre
-    mov rdx, 6          ; longueur maximale du nombre (6 chiffres)
+    ; read(0, input, 32)
+    mov rax, 0
+    mov rdi, 0
+    mov rsi, input
+    mov rdx, 32
     syscall
 
-    ; Convertir le nombre en entrée en valeur entière
-    mov rsi, num        ; pointeur vers la chaîne
-    call atoi           ; convertir la chaîne en entier dans rax
+    ; convertir ASCII → entier
+    xor rax, rax        ; rax = nombre final
+    xor rcx, rcx        ; index
+    xor rbx, rbx
+    mov rbx, input
 
-    ; Vérifier si le nombre est premier
-    mov rbx, 2          ; Initialise le diviseur à 2
-check_divisor:
-    mov rdx, 0          ; Réinitialise le registre de reste
-    mov rdi, rax        ; Charge le nombre à tester
-    div rbx             ; Divise rdi par rbx, le reste est dans rdx
-    test rdx, rdx       ; Vérifie si le reste est nul
-    jz not_prime        ; Si le reste est zéro, le nombre n'est pas premier
+.convert_loop:
+    movzx r8, byte [rbx + rcx]
+    test r8, r8
+    jz .end_convert
+    cmp r8, 10          ; '\n'
+    je .end_convert
 
-    inc rbx             ; Passe au diviseur suivant
-    mov rsi, rax        ; Charge à nouveau le nombre à tester
-    mov rdi, rbx        ; Charge le diviseur
-    cmp rdi, rsi        ; Compare le diviseur avec le nombre
-    jz prime            ; Si le diviseur est égal au nombre, le nombre est premier
-    cmp rbx, rsi        ; Compare le diviseur avec le nombre
-    jg prime            ; Si le diviseur est supérieur au nombre, le nombre est premier
-    jmp check_divisor   ; Sinon, continue à chercher un diviseur
+    cmp r8, '0'
+    jb bad_input
+    cmp r8, '9'
+    ja bad_input
+
+    sub r8, '0'
+    imul rax, rax, 10
+    add rax, r8
+
+    inc rcx
+    jmp .convert_loop
+
+.end_convert:
+    mov rsi, rax        ; n = valeur lue
+
+    ; n <= 1 → non premier
+    cmp rsi, 2
+    jl not_prime
+
+    ; si n == 2 → premier
+    cmp rsi, 2
+    je is_prime
+
+    ; boucle de test de primalité
+    mov rcx, 2          ; diviseur d = 2
+
+.prime_loop:
+    mov rax, rsi
+    xor rdx, rdx
+    div rcx             ; rax = n/d, rdx = reste
+    test rdx, rdx
+    jz not_prime        ; si reste == 0 → pas premier
+
+    inc rcx
+    mov rax, rcx
+    imul rax, rax       ; rax = d^2
+    cmp rax, rsi
+    jle .prime_loop     ; tant que d^2 <= n
+
+is_prime:
+    mov rax, 60
+    xor rdi, rdi        ; exit(0)
+    syscall
 
 not_prime:
-    mov byte [is_prime], 1  ; Indique que le nombre n'est pas premier
-    jmp exit_program
-
-prime:
-    mov byte [is_prime], 0  ; Indique que le nombre est premier
-    jmp exit_program
-
-exit_program:
-    ; Sortie du programme en affichant 0 si le nombre est premier, sinon 1
-    mov rax, 1          ; sys_write
-    mov rdi, 1          ; file descriptor 1 (stdout)
-    mov rsi, is_prime   ; pointeur vers la variable is_prime
-    mov rdx, 1          ; longueur du message (1 byte)
+    mov rax, 60
+    mov rdi, 1          ; exit(1)
     syscall
 
-    ; Terminer le programme
-    mov rax, 60         ; sys_exit
-    xor rdi, rdi        ; code de sortie 0 (succès)
+bad_input:
+    mov rax, 60
+    mov rdi, 2          ; exit(2)
     syscall
-
-; Fonction pour convertir une chaîne de caractères en nombre entier
-atoi:
-    xor rax, rax        ; Initialise le résultat à zéro
-next_digit:
-    lodsb               ; Charge le prochain caractère dans al, et incrémente rsi
-    test al, al         ; Vérifie si nous avons atteint la fin de la chaîne (caractère nul)
-    jz done             ; Si oui, nous avons terminé
-    sub al, '0'         ; Convertit le caractère ASCII en nombre
-    imul rax, rax, 10   ; Multiplie le résultat précédent par 10
-    add rax, rdi        ; Ajoute le nouveau chiffre au résultat
-    jmp next_digit      ; Traite le prochain chiffre
-done:
-    ret
