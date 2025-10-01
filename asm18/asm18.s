@@ -95,7 +95,7 @@ timeout:
 
 	mov rax, 1
 	mov rdi, 1
-	lea rsi, [timeout_message]
+	lea rsi, [timeout]
 	mov rdx, timeout_len
 	syscall
 
