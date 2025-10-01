@@ -1,14 +1,14 @@
+global _start
+_start:
+
 section .bss
-	input resb 6
+	input resb 5
 
 section .text
-   	global _start
-
-_start:
 	mov rax, 0
 	mov rdi, 0
 	mov rsi, input
-	mov rdx, 6
+	mov rdx, 5
 	syscall
 
 loop:
