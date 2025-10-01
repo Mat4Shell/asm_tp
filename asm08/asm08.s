@@ -3,9 +3,6 @@
 ; Usage: ./asm08 N
 ; Example: ./asm08 5 -> prints 10
 
-section .data
-    fmt_invalid db "Invalid input", 10, 0
-
 section .bss
     buf resb 32
 
@@ -13,19 +10,19 @@ section .text
     global _start
 
 _start:
-    ; argc in rdi, argv in rsi
+    ; argc in [rsp]
     mov rdi, [rsp]          ; argc
     cmp rdi, 2
     jne bad_input
 
-    ; charger argv[1]
-    mov rsi, [rsp+16]       ; argv[1] (pointeur vers string)
+    ; argv[1] -> [rsp+16]
+    mov rsi, [rsp+16]       ; argv[1]
     mov rdi, rsi
 
-    ; convertir string en entier (base 10)
+    ; convertir string -> entier (base 10)
     xor rbx, rbx            ; valeur finale
 .convert_loop:
-    mov al, byte [rsi]
+    mov al, [rsi]
     cmp al, 0
     je .done_convert
     cmp al, '0'
@@ -39,7 +36,7 @@ _start:
     jmp .convert_loop
 
 .done_convert:
-    ; RBX contient N
+    ; RBX = N
     cmp rbx, 1
     jb .print_zero   ; si N <= 0 → somme = 0
 
@@ -58,7 +55,7 @@ _start:
     ; convertir RAX en string
     mov rcx, buf + 31
     mov rbx, 10
-    mov byte [rcx], 10
+    mov byte [rcx], 10    ; newline
     dec rcx
     cmp rax, 0
     jne .convert_digit
@@ -67,9 +64,9 @@ _start:
     jmp .done_number
 
 .convert_digit:
-    xor rdx, rdx
+    xor rdx, rdx          ; important avant div !
 .repeat_div:
-    div rbx
+    div rbx               ; divise rdx:rax par rbx
     add dl, '0'
     mov [rcx], dl
     dec rcx
