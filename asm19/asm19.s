@@ -1,144 +1,108 @@
 global _start
 
 section .data
-    ; Adresse + port
-    sockaddr: 
-        dw 2                  ; AF_INET
-        dw 0x3905             ; Port 1337 en big endian (0x0539 → 1337 décimal)
-        dd 0x0100007F         ; 127.0.0.1
-        dq 0                  ; padding
+listen_msg db "listening on port 1337",10
+listen_len equ $-listen_msg
 
-    hello_msg db 'Hello, client!',10
-    hello_len equ $-hello_msg
-
-    logfile db "server.log",0
-    log_prefix db "Hello, Client",0
-    newline db 10
+filename   db "messages",0
 
 section .bss
-    sock resq 1
-    client_sock resq 1
-    buf resb 256
-    client_count resq 1
+sockaddr   resb 16
+buf        resb 128
+timeout_tv resb 16
 
 section .text
 _start:
-    ; 1) socket(AF_INET, SOCK_STREAM, 0)
+    ; 1. socket(AF_INET, SOCK_DGRAM, 0)
     mov rax, 41
-    mov rdi, 2
-    mov rsi, 1
-    mov rdx, 0
+    mov rdi, 2          ; AF_INET
+    mov rsi, 2          ; SOCK_DGRAM
+    xor rdx, rdx
     syscall
-    mov [sock], rax
+    mov r12, rax        ; save sockfd
 
-    ; 2) bind(sock, &sockaddr, 16)
-    mov rdi, [sock]
-    lea rsi, [rel sockaddr]
+    ; 2. bind(sock, sockaddr, 16)
+    lea rdi, [sockaddr]
+    mov word [rdi], 2              ; AF_INET
+    mov word [rdi+2], 0x3905       ; htons(1337) = 0x3905 en little endian
+    xor eax, eax
+    mov dword [rdi+4], eax         ; INADDR_ANY (0.0.0.0)
+    mov qword [rdi+8], 0           ; sin_zero
+
+    mov rax, 49       ; syscall: bind
+    mov rdi, r12
+    lea rsi, [sockaddr]
     mov rdx, 16
-    mov rax, 49
     syscall
 
-    ; 3) listen(sock, 5)
-    mov rdi, [sock]
-    mov rsi, 5
-    mov rax, 50
+    ; 3. afficher "listening on port 1337"
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [listen_msg]
+    mov rdx, listen_len
     syscall
 
-accept_loop:
-    ; 4) accept(sock, NULL, NULL)
-    mov rdi, [sock]
-    xor rsi, rsi
-    xor rdx, rdx
-    mov rax, 43
+    ; 4. setsockopt timeout pour recvfrom (1s)
+    mov qword [timeout_tv], 1      ; tv_sec = 1
+    xor qword [timeout_tv+8], rax ; tv_usec = 0
+    mov rax, 54                    ; setsockopt
+    mov rdi, r12
+    mov rsi, 1                     ; SOL_SOCKET
+    mov rdx, 20                    ; SO_RCVTIMEO
+    lea r10, [timeout_tv]
+    mov r8, 16
     syscall
-    mov [client_sock], rax
 
-    ; 5) lire ce que le client envoie (recvfrom)
+    ; 5. openat(AT_FDCWD, "messages", O_WRONLY|O_CREAT|O_APPEND, 0644)
+    mov rax, 257            ; syscall: openat
+    mov rdi, -100           ; AT_FDCWD
+    lea rsi, [filename]     ; chemin
+    mov rdx, 577            ; O_WRONLY|O_CREAT|O_APPEND
+    mov r10, 0777           ; permissions
+    syscall
+    
+    mov r14, rax            ; fd
+
+.loop:
+    ; 4. recvfrom(sock, buf, 128, 0, NULL, NULL)
     mov rax, 45
-    mov rdi, [client_sock]
+    mov rdi, r12
     lea rsi, [buf]
-    mov rdx, 256
+    mov rdx, 128
     xor r10, r10
     xor r8, r8
     xor r9, r9
     syscall
+    cmp rax, 0
+    jle .exit          ; si erreur ou rien reçu → exit
 
-    ; 6) envoyer la réponse "Hello, client!"
-    mov rax, 44
-    mov rdi, [client_sock]
-    lea rsi, [hello_msg]
-    mov rdx, hello_len
-    xor r10, r10
-    xor r8, r8
-    xor r9, r9
-    syscall
+    mov r13, rax       ; sauvegarder taille lue
 
-    ; 7) log "Hello, ClientX" dans server.log
-    ; incrémenter compteur
-    mov rax, [client_count]
-    inc rax
-    mov [client_count], rax
 
-    ; ouvrir fichier log en append
-    mov rax, 2
-    lea rdi, [rel logfile]
-    mov rsi, 1089        ; O_WRONLY|O_CREAT|O_APPEND
-    mov rdx, 0644
-    syscall
-    mov r12, rax         ; fd log
-
-    ; écrire "Hello, Client"
+    ; 6. write(fd, buf, taille)
     mov rax, 1
-    mov rdi, r12
-    lea rsi, [rel log_prefix]
-    mov rdx, 13
-    syscall
-
-    ; écrire numéro du client (en ascii)
-    mov rax, [client_count]
-    call itoa
-    mov rax, 1
-    mov rdi, r12
+    mov rdi, r14
     lea rsi, [buf]
-    mov rdx, rbx
+    mov rdx, r13
     syscall
 
-    ; écrire newline
-    mov rax, 1
-    mov rdi, r12
-    lea rsi, [rel newline]
-    mov rdx, 1
+    ; 7. close(fd)
+    mov rax, 3
+    mov rdi, r14
     syscall
 
-    ; close fichier
+    jmp .loop
+
+
+.exit:
+    mov rax, 3
+    mov rdi, r14
+    syscall
+
     mov rax, 3
     mov rdi, r12
     syscall
 
-    ; 8) fermer socket client
-    mov rax, 3
-    mov rdi, [client_sock]
+    mov rax, 60
+    xor rdi, rdi
     syscall
-
-    jmp accept_loop
-
-; ===== itoa: convertit RAX → string dans [buf], longueur dans RBX =====
-itoa:
-    mov rcx, 10
-    lea rdi, [buf+64]    ; écrire à l’envers
-.convert:
-    xor rdx, rdx
-    div rcx
-    add dl, '0'
-    dec rdi
-    mov [rdi], dl
-    test rax, rax
-    jnz .convert
-    ; calcul longueur
-    mov rbx, buf+64
-    sub rbx, rdi
-    ; décaler string au début de buf
-    lea rsi, [buf]
-    mov rdx, rbx
-    rep movsb
-    ret
