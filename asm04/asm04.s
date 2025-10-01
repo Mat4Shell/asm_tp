@@ -11,6 +11,9 @@ section .text
 	mov rdx, 5
 	syscall
 
+	xor rax, rax
+	xor rcx, rcx
+
 loop:
 	movzx rbx, byte [input + rcx]
 	test rbx, rbx
@@ -28,7 +31,7 @@ loop:
 	imul rax, rax, 10
 	add rax, rbx
 	inc rcx
-	jmp converted
+	jmp loop
 
 converted:
 	and rax, 1
