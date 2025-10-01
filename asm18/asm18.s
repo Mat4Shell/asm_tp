@@ -37,7 +37,7 @@ _start:
 	mov rdx, message_len
 	mov r10, 0
 	lea r8, [sock]
-	mov r9, r16
+	mov r9, 16
 	syscall
 
 	cmp rax, 0
