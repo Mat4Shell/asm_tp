@@ -1,7 +1,7 @@
 global _start
 
 section .bss
-    input resb 32       ; buffer pour lecture
+    input resb 32   
 
 section .text
 _start:
@@ -13,8 +13,8 @@ _start:
     syscall
 
     ; convertir ASCII → entier
-    xor rax, rax        ; rax = nombre final
-    xor rcx, rcx        ; index
+    xor rax, rax    
+    xor rcx, rcx      
     xor rbx, rbx
     mov rbx, input
 
@@ -22,7 +22,7 @@ _start:
     movzx r8, byte [rbx + rcx]
     test r8, r8
     jz .end_convert
-    cmp r8, 10          ; '\n'
+    cmp r8, 10      
     je .end_convert
 
     cmp r8, '0'
@@ -38,7 +38,7 @@ _start:
     jmp .convert_loop
 
 .end_convert:
-    mov rsi, rax        ; n = valeur lue
+    mov rsi, rax    
 
     ; n <= 1 → non premier
     cmp rsi, 2
@@ -49,32 +49,32 @@ _start:
     je is_prime
 
     ; boucle de test de primalité
-    mov rcx, 2          ; diviseur d = 2
+    mov rcx, 2     
 
 .prime_loop:
     mov rax, rsi
     xor rdx, rdx
-    div rcx             ; rax = n/d, rdx = reste
+    div rcx   
     test rdx, rdx
-    jz not_prime        ; si reste == 0 → pas premier
+    jz not_prime    
 
     inc rcx
     mov rax, rcx
-    imul rax, rax       ; rax = d^2
+    imul rax, rax    
     cmp rax, rsi
-    jle .prime_loop     ; tant que d^2 <= n
+    jle .prime_loop  
 
 is_prime:
     mov rax, 60
-    xor rdi, rdi        ; exit(0)
+    xor rdi, rdi   
     syscall
 
 not_prime:
     mov rax, 60
-    mov rdi, 1          ; exit(1)
+    mov rdi, 1     
     syscall
 
 bad_input:
     mov rax, 60
-    mov rdi, 2          ; exit(2)
+    mov rdi, 2       
     syscall
