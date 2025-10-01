@@ -1,124 +1,96 @@
-; asm08: Sum of Integers below N
+; asm08.asm
+; Sum of integers below N
 ; Usage: ./asm08 N
-; Example: ./asm08 5  -> 10
-
-global _start
+; Example: ./asm08 5 -> prints 10
 
 section .data
-    newline db 10
-    newline_len equ $ - newline
+    fmt_invalid db "Invalid input", 10, 0
 
 section .bss
-    res resb 32
+    buf resb 32
 
 section .text
+    global _start
 
 _start:
-    ; argc dans rdi, argv dans rsi
-    mov rdi, [rsp]            ; argc
+    ; argc in rdi, argv in rsi
+    mov rdi, [rsp]          ; argc
     cmp rdi, 2
-    jl no_param               ; si pas d'argument → 0 direct
+    jne bad_input
 
-    mov rsi, [rsp+16]         ; argv[1]
-    call str_to_int           ; convertit string → rax
-    mov rbx, rax              ; rbx = N
-    cmp rbx, 1
-    jle print_zero            ; si N <= 1 → 0
+    ; charger argv[1]
+    mov rsi, [rsp+16]       ; argv[1] (pointeur vers string)
+    mov rdi, rsi
 
-    ; somme de 1 à N-1
-    xor rcx, rcx              ; rcx = i
-    xor rax, rax              ; rax = somme
-sum_loop:
-    inc rcx                   ; i++
-    cmp rcx, rbx
-    jge sum_done
-    add rax, rcx              ; somme += i
-    jmp sum_loop
-sum_done:
-    ; imprimer la somme
-    mov rsi, res
-    call int_to_str
-    mov rdx, rsi
-    mov rsi, res
-    mov rdi, 1
-    mov rax, 1
-    syscall
-
-    ; retour à la ligne
-    mov rax, 1
-    mov rdi, 1
-    mov rsi, newline
-    mov rdx, newline_len
-    syscall
-
-    jmp exit_ok
-
-print_zero:
-    mov rax, '0'
-    mov [res], al
-    mov rax, 1
-    mov rdi, 1
-    mov rsi, res
-    mov rdx, 1
-    syscall
-
-    ; retour à la ligne
-    mov rax, 1
-    mov rdi, 1
-    mov rsi, newline
-    mov rdx, newline_len
-    syscall
-    jmp exit_ok
-
-no_param:
-    jmp print_zero
-
-; ---- fonctions ----
-
-; str_to_int: convertit une string décimale → int
-; entrée: rsi pointe sur string
-; sortie: rax = valeur
-str_to_int:
-    xor rax, rax
-.str_loop:
-    mov bl, byte [rsi]
-    cmp bl, 0
-    je .done
-    cmp bl, '0'
-    jl .done
-    cmp bl, '9'
-    jg .done
-    sub bl, '0'
-    imul rax, rax, 10
-    add rax, rbx
+    ; convertir string en entier (base 10)
+    xor rbx, rbx            ; valeur finale
+.convert_loop:
+    mov al, byte [rsi]
+    cmp al, 0
+    je .done_convert
+    cmp al, '0'
+    jb bad_input
+    cmp al, '9'
+    ja bad_input
+    sub al, '0'
+    imul rbx, rbx, 10
+    add rbx, rax
     inc rsi
-    jmp .str_loop
-.done:
-    ret
+    jmp .convert_loop
 
-; int_to_str: convertit rax en string ASCII
-; entrée: rax = entier, rsi = buffer
-; sortie: buffer rempli, rsi = longueur
-int_to_str:
-    mov rcx, 10
-    mov rbx, rsi
-    add rsi, 31
-    mov byte [rsi], 0
-.convert:
+.done_convert:
+    ; RBX contient N
+    cmp rbx, 1
+    jb .print_zero   ; si N <= 0 → somme = 0
+
+    ; somme = (N-1)*N/2
+    mov rax, rbx
+    dec rax          ; rax = N-1
+    imul rax, rbx    ; rax = (N-1)*N
+    shr rax, 1       ; divisé par 2
+
+    jmp .print_result
+
+.print_zero:
+    xor rax, rax
+
+.print_result:
+    ; convertir RAX en string
+    mov rcx, buf + 31
+    mov rbx, 10
+    mov byte [rcx], 10
+    dec rcx
+    cmp rax, 0
+    jne .convert_digit
+    mov byte [rcx], '0'
+    dec rcx
+    jmp .done_number
+
+.convert_digit:
     xor rdx, rdx
-    div rcx
+.repeat_div:
+    div rbx
     add dl, '0'
-    dec rsi
-    mov [rsi], dl
+    mov [rcx], dl
+    dec rcx
     test rax, rax
-    jnz .convert
-    mov rdx, rbx
-    mov rcx, rsi
+    jnz .repeat_div
+
+.done_number:
+    inc rcx
+    mov rdx, buf+32
     sub rdx, rcx
     mov rsi, rcx
-    ret
+    mov rax, 1
+    mov rdi, 1
+    syscall
 
-exit_ok:
+    ; exit(0)
     mov rax, 60
     xor rdi, rdi
+    syscall
+
+bad_input:
+    mov rax, 60
+    mov rdi, 1
     syscall
