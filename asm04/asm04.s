@@ -12,7 +12,7 @@ _start:
 	syscall
 
 loop:
-	movzx rbx, byt [input + rcx]
+	movzx rbx, byte [input + rcx]
 	test rbx, rbx
 	jz converted
 
