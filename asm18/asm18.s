@@ -6,7 +6,7 @@ section .data
     	message db 'message: "Hello, client!"',0
 	message_len equ $-message
 	timeout_message db "Timeout: no response from server", 10
-	timeout_len equ $-timeout
+	timeout_len equ $-timeout_message
 
 section .bss
     	sock resb 16
