@@ -1,119 +1,113 @@
-section .bss
-    numbuf  resb 32
-    outbuf  resb 64
+global _start
 
 section .data
-    newline db 10
+    	server_ip db 127,0,0,1
+    	server_port dw 1337
+    	message db 'message: "Hello, client!"',0
+	message_len equ $-message
+	timeout db "Timeout: no response from server", 0
+	timeout_len equ $-timeout
+
+section .bss
+    	sock resb 16
+	buf resb 1024
 
 section .text
-    global _start
-
 _start:
-    mov rbx, [rsp]           ; argc
-    cmp rbx, 2
-    jl usage
-
-    mov rsi, [rsp+16]        ; argv[1]
-    mov rdi, [rsi]           ; lire premier octet
-    cmp dil, '-'             ; option "-b" ?
-    jne default_hex
-
-    ; si -b, vérifier qu'on a bien un 2ème argument
-    cmp rbx, 3
-    jl usage
-
-    ; argv[2]
-    mov rsi, [rsp+24]
-    mov rdx, 2               ; mode = binaire
-    jmp parse_number
-
-default_hex:
-    mov rdx, 16              ; mode = hex
-    mov rsi, [rsp+16]        ; argv[1]
-
-
-parse_number:
-    xor rax, rax
-    xor rcx, rcx
-
-.parse_loop:
-    mov bl, byte [rsi + rcx]
-    cmp bl, 0
-    je convert_done
-    sub bl, '0'
-    cmp bl, 9
-    ja usage
-    imul rax, rax, 10
-    add rax, rbx
-    inc rcx
-    jmp .parse_loop
-
-convert_done:
-    ; RAX contient le nombre
-    cmp rdx, 16
-    je to_hex
-    cmp rdx, 2
-    je to_bin
-
-
-to_hex:
-    mov rcx, outbuf + 63     ; pointeur fin buffer
-    mov byte [rcx], 0
-.hex_loop:
-    xor rdx, rdx
-    mov rbx, 16
-    div rbx
-    cmp dl, 9
-    jbe .digit
-    add dl, 'A' - 10
-    jmp .store
-.digit:
-    add dl, '0'
-.store:
-    dec rcx
-    mov [rcx], dl
-    test rax, rax
-    jnz .hex_loop
-
-    jmp print_and_exit
-
-to_bin:
-    mov rcx, outbuf + 63
-    mov byte [rcx], 0
-.bin_loop:
-    xor rdx, rdx
-    mov rbx, 2
-    div rbx
-    add dl, '0'
-    dec rcx
-    mov [rcx], dl
-    test rax, rax
-    jnz .bin_loop
-
-    jmp print_and_exit
-
-
-print_and_exit:
-    mov rdx, outbuf + 63
-    sub rdx, rcx
-    mov rsi, rcx
-    mov rax, 1
-    mov rdi, 1
+   
+    mov rax, 41               ; sys_socket
+    mov rdi, 2                ; AF_INET
+    mov rsi, 1                ; SOCK_STREAM
+    mov rdx, 0                ; protocol
     syscall
 
-    ; '\n'
-    mov rax, 1
-    mov rdi, 1
-    mov rsi, newline
-    mov rdx, 1
-    syscall
+	cmp rax, 0
+	js fail
+    	mov r12, rax
 
-    mov rax, 60
-    xor rdi, rdi
-    syscall
+    	lea rdi, [sock]
+    	mov word [rdi], 2           ; AF_INET
+    	mov word [rdi+2], 0x3905     ; port 12345
+    	mov dword [rdi+4], 0x0100007F ; 127.0.0.1
+	mov qword [rdi + 8], rax
+
+    	mov rax, 44
+	mov rdi, r12
+	lea rsi, [message]
+	mov rdx, message_len
+	mov r10, 0
+	lea r8, [sock]
+	mov r9, r16
+	syscall
+
+	cmp rax, 0
+	js fail	
 
 
-usage:
-    mov rax, 60
-    mov rdi, 1
-    syscall
+    	mov qword [buf], 5
+	xor qword [buf + 8], 0
+
+	mov rax, 54
+	mov rdi, r12
+	mov rsi, 1
+	mov rdx, 20
+	lea r10, [buf]
+	mov r8, 16
+	syscall
+	
+	cmp rax, 0
+	js fail
+
+	mov rax, 45
+	mov rdi, r12
+	lea rsi, [buf]
+	mov rdx, 128
+	mov r10, 0
+	mov r8, 0
+	mov r9, 0
+	syscall
+
+
+	cmp rax, 0
+	jle timeout
+	jmp success
+
+
+success:
+	mov rdx, rax
+	mov rax, 1
+	mov rdi, 1
+	lea rsi, [buf]
+	syscall
+
+	mov rax, 3
+	mov rdi, 12
+	syscall
+
+	mov rax, 60
+	mov rdi, 0
+	syscall
+
+timeout:
+	mov rax, 3
+	mov rdi, r12
+	syscall
+
+	mov rax, 1
+	mov rdi, 1
+	lea rsi, [timeout_message]
+	mov rdx, timeout_len
+	syscall
+
+	mov rax, 60
+	mov rdi, 1
+	syscall
+
+fail:
+	mov rax, 3
+	mov rdi, r12
+	syscall
+
+	mov rax, 60
+	mov rdi, 1
+	syscall
