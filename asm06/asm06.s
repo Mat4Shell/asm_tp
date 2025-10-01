@@ -3,6 +3,9 @@ global _start
 section .bss
     result resb 20          ; Buffer pour le résultat
 
+section .data 
+    newline db 10           ; Nouvelle ligne
+
 section .text
 _start:
     ; Charger les paramètres dans rsi (premier argument) et rdi (second argument)
@@ -30,6 +33,8 @@ convert_to_int:
     cmp r10, 10
     je second_arg
 
+    cmp r10, '-'                 ; Vérifier le signe '-'
+    je negative_first_arg
    
     cmp r10, '0'
     jb is_letter
@@ -96,37 +101,51 @@ no_neg_second_arg:
     add rax, rbx                 ; Additionner les deux entiers
 
     ; Préparer pour convertir le résultat en chaîne
-    mov rsi, result              ; Pointeur vers le buffer
-    add rsi, 19                  ; Placer le pointeur à la fin du buffer
-    mov byte [rsi], 0            ; Ajouter un terminateur nul
+print_number:
+    mov rbx, rax          ; rbx = valeur
+    mov rcx, result + 20  ; pointeur fin buffer
+    mov rsi, rcx          ; sauvegarde
 
-    ; Gérer le cas où le résultat est négatif
-    test rax, rax
-    jns convert_to_string        ; Si le résultat est positif, sauter
-    neg rax                      ; Rendre le résultat positif pour la conversion
-    
-    dec rsi                      ; Préparer l'espace pour le signe
-    mov byte [rsi], '-'          ; Ajouter le signe '-' dans le buffer
-    dec rsi              
+    cmp rbx, 0
+    jge .convert_digits
 
-convert_to_string:
-    xor rdx, rdx                 ; Effacer rdx avant la division
-    mov rbx, 10
-next_digit:
-    xor rdx, rdx                 ; Effacer rdx avant la division
-    div rbx                      ; Diviser rax par 10
-    add dl, '0'                  ; Convertir le reste en ASCII
-    mov byte [rsi], dl           ; Stocker le caractère dans le buffer
-    dec rsi                      ; Déplacer le pointeur
-    test rax, rax                ; Vérifier si le quotient est 0
-    jnz next_digit
+    ; nombre négatif → ajouter '-' en premier
+    neg rbx               ; rbx = valeur absolue
+    dec rcx
+    mov byte [rcx], '-'   ; place '-' à gauche
+    mov rsi, rcx          ; nouvelle position de départ
+
+.convert_digits:
+    cmp rbx, 0
+    je .done
+
+.loop:
+    xor rdx, rdx
+    mov rax, rbx
+    mov r8, 10
+    div r8                ; rax = quotient, rdx = reste
+    add dl, '0'
+    dec rcx
+    mov [rcx], dl
+    mov rbx, rax
+    test rbx, rbx
+    jnz .loop
+
+.done:
+    mov rdx, result + 20
+    sub rdx, rcx          ; longueur réelle
+    mov rsi, rcx          ; adresse de début
+    mov rax, 1
+    mov rdi, 1
+    syscall
 
     ; Ajuster rsi pour pointer au début de la chaîne
-    inc rsi
+    ; inc rsi
 
     ; Afficher la chaîne résultante
     mov rax, 1                   ; syscall: sys_write
-    mov rdi, 1                   ; file descriptor: stdout
+    mov rdi, 1   
+    lea rsi, [newline]                ; file descriptor: stdout
     mov rdx, 20                  ; Longueur de la chaîne
     syscall
 
