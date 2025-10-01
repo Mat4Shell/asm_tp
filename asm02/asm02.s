@@ -37,7 +37,8 @@ _start:
     syscall
 
     mov rax, 60
-    mov rdi, 0
+    xor rdi, rdi
+	xor rsi, rsi
     syscall
 
 not_42:
