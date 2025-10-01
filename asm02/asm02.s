@@ -31,9 +31,9 @@ _start:
 	xor rsi, rsi	
 
         mov rax, 1
-        mov rdx, 1
+        mov rdi, 1
         mov rsi, msg
-        mov rdx, 4
+        mov rdi, 4
         syscall
 
         mov rax, 60
