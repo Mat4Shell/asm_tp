@@ -32,8 +32,8 @@ _start:
 
 check_r11:
     cmp r11, rax
-    jle display_result      
-    mov rax, r11               
+    jle display_result             ; Si r11 <= rax, rax reste le plus grand
+    mov rax, r11                   ; Sinon, r11 devient le plus grand
 
 display_result:
     mov rdi, rax
@@ -46,7 +46,7 @@ display_result:
     syscall
 
     mov rax, 60
-    mov rdi, 0
+    xor rdi, rdi
     syscall
 
 error:
@@ -55,8 +55,8 @@ error:
     syscall
 
 str_to_int:
-    mov rax, 0
-    mov rbx, 0
+    xor rax, rax
+    xor rbx, rbx
     movzx rcx, byte [rdi]
     cmp rcx, '-'
     jne next_digit
@@ -85,10 +85,10 @@ int_to_str:
     mov rsi, result
     add rsi, 63
     mov byte [rsi], 0
-    mov rdx, 0
+    xor rdx, rdx
 
 convert_digit:
-    mov rdx, 0
+    xor rdx, rdx
     mov rcx, 10
     mov rax, rdi
     div rcx
