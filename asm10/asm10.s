@@ -46,7 +46,7 @@ display_result:
     syscall
 
     mov rax, 60
-    xor rdi, rdi
+    mov rdi, 0
     syscall
 
 error:
@@ -55,14 +55,8 @@ error:
     syscall
 
 str_to_int:
-    xor rax, rax
-    xor rbx, rbx
-    movzx rcx, byte [rdi]
-    cmp rcx, '-'
-    jne next_digit
-    inc rdi
-    mov rbx, 1
-
+    mov rax, 0
+    mov rbx, 0
 next_digit:
     movzx rcx, byte [rdi]
     test rcx, rcx
@@ -72,36 +66,23 @@ next_digit:
     add rax, rcx
     inc rdi
     jmp next_digit
-
 end_str_to_int:
-    test rbx, rbx
-    jz positive_end
-    neg rax
-
-positive_end:
     ret
 
 int_to_str:
     mov rsi, result
     add rsi, 63
     mov byte [rsi], 0
-    xor rdx, rdx
+    mov rdx, 0
 
 convert_digit:
-    xor rdx, rdx
+    mov rdx, 0
+    mov rbx, rdi
     mov rcx, 10
-    mov rax, rdi
     div rcx
     add dl, '0'
     dec rsi
     mov byte [rsi], dl
     test rax, rax
     jnz convert_digit
-
-    test rbx, rbx
-    jz finish_conversion
-    dec rsi
-    mov byte [rsi], '-'
-
-finish_conversion:
     ret
