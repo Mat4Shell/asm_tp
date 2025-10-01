@@ -1,23 +1,24 @@
 global _start
 _start:
 
-section .bss
-        input resb 6
 
 section .data
 	msg db "1337", 10
+
+section .bss
+        input resb 6
 
 section .text
 	
 	mov rax, 0
 	mov rdi, 0
 	mov rsi, input
-	mov rdx, 32
+	mov rdx, 4
 	syscall
 
-    mov al, byte [input]
-    cmp al, '4'
-    jne not_42
+	mov al, byte [input]
+	cmp al, '4'
+	jne not_42
 
     mov al, byte [input + 1]
     cmp al, '2'
