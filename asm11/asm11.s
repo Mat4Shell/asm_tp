@@ -1,30 +1,27 @@
 section .bss
-    buffer resb 256        ; buffer pour l'entrée
-    outbuf resb 32         ; buffer pour le résultat
+    buffer resb 256   
+    outbuf resb 32     
 
 section .text
     global _start
 
 _start:
-    ; read stdin -> buffer
-    mov rax, 0             ; syscall read
-    mov rdi, 0             ; fd = stdin
+    mov rax, 0           
+    mov rdi, 0      
     mov rsi, buffer
     mov rdx, 256
     syscall
 
-    ; RCX = compteur voyelles
     xor rcx, rcx
-    xor rbx, rbx           ; index i = 0
+    xor rbx, rbx          
 
 .count_loop:
     mov al, [buffer + rbx]
     cmp al, 0
     je .done_count
-    cmp al, 10             ; ignorer newline
+    cmp al, 10           
     je .next_char
 
-    ; vérifier voyelles minuscules
     cmp al, 'a'
     je .inc_vowel
     cmp al, 'e'
@@ -38,7 +35,6 @@ _start:
     cmp al, 'y'
     je .inc_vowel
 
-    ; vérifier voyelles majuscules
     cmp al, 'A'
     je .inc_vowel
     cmp al, 'E'
@@ -62,12 +58,10 @@ _start:
     jmp .count_loop
 
 .done_count:
-    ; RCX contient le nombre de voyelles
     mov rax, rcx
 
-    ; convertir en string décimale
     mov rsi, outbuf + 31
-    mov byte [rsi], 10       ; newline
+    mov byte [rsi], 10   
     dec rsi
     mov rbx, 10
     cmp rax, 0
