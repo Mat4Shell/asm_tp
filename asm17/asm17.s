@@ -1,33 +1,24 @@
-; asm17.asm
-; Caesar cipher implementation (x86-64 Linux)
-; Usage:
-;   echo "hello" | ./asm17 3
-;   khoor
-;   echo $?
-
 section .bss
-    buf resb 4096       ; buffer for stdin
-    out resb 4096       ; buffer for output
+    buf resb 4096   
+    out resb 4096  
 
 section .text
     global _start
 
 _start:
-    ; --- lire argc ---
-    mov rax, [rsp]       ; argc
+    mov rax, [rsp]
     cmp rax, 2
     jl .no_param
     ; argv[1]
     mov rdi, [rsp+16]
     jmp .parse_shift
 .no_param:
-    xor rsi, rsi         ; shift = 0
+    xor rsi, rsi     
     jmp .read_stdin
 
 .parse_shift:
-    ; convertir argv[1] en entier positif (base 10)
-    mov rsi, 0           ; rsi = shift
-    mov rbx, rdi         ; rbx = pointer to arg string
+    mov rsi, 0      
+    mov rbx, rdi     
 .next_digit:
     mov al, byte [rbx]
     cmp al, 0
@@ -43,21 +34,19 @@ _start:
 .shift_ready:
     mov rax, 26
     xor rdx, rdx
-    div rax              ; rsi / 26
-    mov rsi, rdx         ; rsi = shift mod 26
+    div rax              
+    mov rsi, rdx        
 
-; --- lire stdin ---
 .read_stdin:
-    mov rax, 0           ; sys_read
-    mov rdi, 0           ; fd = stdin
+    mov rax, 0          
+    mov rdi, 0          
     mov rsi, buf
     mov rdx, 4096
     syscall
     cmp rax, 0
     jle .exit_ok
-    mov r12, rax         ; r12 = length read
+    mov r12, rax       
 
-; --- transformer ---
     mov rcx, 0
 .loop:
     cmp rcx, r12
@@ -65,15 +54,14 @@ _start:
 
     mov al, [buf+rcx]
 
-    ; si 'a' <= al <= 'z'
     cmp al, 'a'
     jb .check_upper
     cmp al, 'z'
     ja .check_upper
     sub al, 'a'
-    add al, sil          ; add shift
+    add al, sil     
     mov bl, 26
-    div bl               ; ah = quotient, al = remainder
+    div bl           
     add al, 'a'
     mov [out+rcx], al
     jmp .next_char
@@ -98,9 +86,8 @@ _start:
     inc rcx
     jmp .loop
 
-; --- write stdout ---
 .write_out:
-    mov rax, 1           ; sys_write
+    mov rax, 1         
     mov rdi, 1
     mov rsi, out
     mov rdx, r12
