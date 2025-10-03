@@ -1,26 +1,22 @@
 ; asm17.asm
-; Caesar cipher sur stdin -> stdout
-; Usage :
-;   echo "hello" | ./asm17 3
-;   khoor
-;
-; Exit codes :
-;   0 -> OK
-;   1 -> param invalide (non numérique)
+; Caesar cipher implementation
+; Exemple :
+;   echo "hello" | ./asm17 3   => khoor
+;   echo "abcXYZ" | ./asm17 2  => cdeZAB
 
 section .bss
-    buf resb 1024
+    buf   resb 1024
     shift resq 1
 
 section .text
     global _start
 
 _start:
-    ; --------------------
-    ; argc/argv handling
-    mov rax, [rsp]        ; argc
+    ; récupérer argc
+    mov rax, [rsp]
     cmp rax, 2
     jl .no_param
+
     ; argv[1]
     mov rdi, [rsp+16]
     call parse_number
@@ -30,56 +26,63 @@ _start:
 .no_param:
     mov qword [shift], 0
 
-; --------------------
-; Lecture boucle stdin -> traitement -> stdout
+; -------------------------
+; Lecture/écriture boucle
 .main_loop:
-    mov rax, 0      ; sys_read
-    mov rdi, 0      ; stdin
+    mov rax, 0          ; sys_read
+    mov rdi, 0          ; stdin
     lea rsi, [buf]
     mov rdx, 1024
     syscall
     cmp rax, 0
     jle .exit_ok
-    mov rbx, rax    ; rbx = nb octets lus
+    mov rbx, rax        ; nb octets lus
 
-    ; appliquer le chiffrement sur buf
     xor rcx, rcx
 .loop_chars:
     cmp rcx, rbx
     jge .write_out
+
     mov al, [buf+rcx]
     movzx rdx, al
 
-    ; Vérifier si lettre minuscule 'a'..'z'
+    ; ----- minuscules -----
     cmp dl, 'a'
     jb .check_upper
     cmp dl, 'z'
     ja .check_upper
-    ; appliquer décalage
-    mov rax, [shift]
-    mov rsi, rax
-    add dl, sil
     sub dl, 'a'
-    movzx rdx, dl
     mov rax, [shift]
-    mov rsi, rax
-    mov rax, rdx
-    xor rdx, rdx
+    add rax, rdx
     mov rcx, 26
-    div rcx
-    mov dl, al
-    mov dl, dl ; (safe)
-    mov dl, ah ; correction
-    ; mauvais passage – simplifions
+    xor rdx, rdx
+    div rcx          ; rax/26 -> quotient, reste en rdx
+    mov dl, dl       ; rdx = reste
+    add dl, 'a'
+    mov [buf+rcx], dl
+    jmp .next_char
 
 .check_upper:
+    ; ----- majuscules -----
     cmp dl, 'A'
-    jb .store_char
+    jb .store_same
     cmp dl, 'Z'
-    ja .store_char
-    ; TODO majuscules
-.store_char:
+    ja .store_same
+    sub dl, 'A'
+    mov rax, [shift]
+    add rax, rdx
+    mov rcx, 26
+    xor rdx, rdx
+    div rcx
+    mov dl, dl
+    add dl, 'A'
     mov [buf+rcx], dl
+    jmp .next_char
+
+.store_same:
+    mov [buf+rcx], al
+
+.next_char:
     inc rcx
     jmp .loop_chars
 
@@ -96,11 +99,11 @@ _start:
     xor rdi, rdi
     syscall
 
-; ----------------------------------------
-; parse_number: convertir argv[1] (ascii décimal) en entier
-; IN: rdi=ptr
-; OUT: rax=valeur
-; si char non-digit -> exit(1)
+; --------------------------------
+; parse_number: ascii -> int
+; IN: rdi = ptr
+; OUT: rax = valeur
+; si non-digit -> exit(1)
 parse_number:
     xor rax, rax
 .parse_loop:
