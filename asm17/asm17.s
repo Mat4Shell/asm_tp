@@ -1,99 +1,140 @@
+; asm17.asm
+; Caesar cipher implementation (x86-64 Linux)
+; Usage:
+;   echo "hello" | ./asm17 3
+; Exit codes:
+;   0 -> success
+;   1 -> no shift param
+;   2 -> invalid shift param
+
 section .bss
-    buf resb 4096   
-    out resb 4096  
+    buf resb 256      ; buffer pour lecture et sortie
+
+section .data
+    newline db 10
 
 section .text
     global _start
 
 _start:
-    mov rax, [rsp]
+    ; Vérifier argc
+    mov rax, [rsp]        ; argc
     cmp rax, 2
     jl .no_param
-    ; argv[1]
-    mov rdi, [rsp+16]
-    jmp .parse_shift
-.no_param:
-    xor rsi, rsi     
-    jmp .read_stdin
 
-.parse_shift:
-    mov rsi, 0      
-    mov rbx, rdi     
-.next_digit:
-    mov al, byte [rbx]
-    cmp al, 0
-    je .shift_ready
-    sub al, '0'
-    cmp al, 9
-    ja .shift_ready
-    imul rsi, rsi, 10
-    add rsi, rax
-    inc rbx
-    jmp .next_digit
+    ; argv[1] = shift
+    mov rsi, [rsp + 16]   ; pointer sur shift string
 
-.shift_ready:
-    mov rax, 26
-    xor rdx, rdx
-    div rax              
-    mov rsi, rdx        
+    ; convertir shift en entier (gestion signe)
+    xor rax, rax
+    xor rbx, rbx          ; rbx = shift
+    xor rcx, rcx
+    mov bl, 0              ; flag négatif = 0
 
-.read_stdin:
-    mov rax, 0          
-    mov rdi, 0          
+    mov dl, byte [rsi + rcx]
+    cmp dl, '-'
+    jne .skip_neg
+    mov bl, 1
+    inc rcx
+.skip_neg:
+.convert_shift:
+    mov dl, byte [rsi + rcx]
+    cmp dl, 0
+    je .shift_done
+    cmp dl, '0'
+    jb .bad_shift
+    cmp dl, '9'
+    ja .bad_shift
+    sub dl, '0'
+    imul rbx, rbx, 10
+    add rbx, rdx
+    inc rcx
+    jmp .convert_shift
+.shift_done:
+    test bl, bl
+    jz .shift_ok
+    neg rbx
+.shift_ok:
+
+    ; lire stdin
+    mov rax, 0            ; sys_read
+    mov rdi, 0            ; stdin
     mov rsi, buf
-    mov rdx, 4096
+    mov rdx, 256
     syscall
     cmp rax, 0
-    jle .exit_ok
-    mov r12, rax       
+    jle .done             ; rien lu, exit 0
+    mov rcx, rax          ; rcx = nb octets lus
 
-    mov rcx, 0
-.loop:
-    cmp rcx, r12
+    ; appliquer Caesar
+    xor rdx, rdx
+    mov rsi, buf
+.cipher_loop:
+    cmp rdx, rcx
     jge .write_out
+    mov al, [rsi + rdx]
 
-    mov al, [buf+rcx]
-
+    ; minuscules ?
     cmp al, 'a'
     jb .check_upper
     cmp al, 'z'
     ja .check_upper
     sub al, 'a'
-    add al, sil     
-    mov bl, 26
-    div bl           
+    mov r8, rbx
+    ; modulo 26 wrap
+    mov r9, 26
+    add al, r8b
+    xor r10b, r10b
+.mod_loop_lower:
+    cmp al, 26
+    jb .done_lower
+    sub al, 26
+    jmp .mod_loop_lower
+.done_lower:
     add al, 'a'
-    mov [out+rcx], al
-    jmp .next_char
+    jmp .store_char
 
 .check_upper:
     cmp al, 'A'
-    jb .no_change
+    jb .store_char
     cmp al, 'Z'
-    ja .no_change
+    ja .store_char
     sub al, 'A'
-    add al, sil
-    mov bl, 26
-    div bl
+    mov r8, rbx
+    mov r9, 26
+    add al, r8b
+    xor r10b, r10b
+.mod_loop_upper:
+    cmp al, 26
+    jb .done_upper
+    sub al, 26
+    jmp .mod_loop_upper
+.done_upper:
     add al, 'A'
-    mov [out+rcx], al
-    jmp .next_char
 
-.no_change:
-    mov [out+rcx], al
-
-.next_char:
-    inc rcx
-    jmp .loop
+.store_char:
+    mov [rsi + rdx], al
+    inc rdx
+    jmp .cipher_loop
 
 .write_out:
-    mov rax, 1         
-    mov rdi, 1
-    mov rsi, out
-    mov rdx, r12
+    mov rax, 1            ; sys_write
+    mov rdi, 1            ; stdout
+    mov rsi, buf
+    mov rdx, rcx
     syscall
 
-.exit_ok:
+.done:
     mov rax, 60
     xor rdi, rdi
+    syscall
+
+.no_param:
+    mov rax, 60
+    mov rdi, 1
+    syscall
+
+.bad_shift:
+    mov rax, 60
+    mov rdi, 2
     syscall
