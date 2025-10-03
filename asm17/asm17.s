@@ -53,7 +53,6 @@ _start:
 .shift_done:
     test bl, bl
     jz .shift_ok
-    neg rbx
 .shift_ok:
 
     ; lire stdin
