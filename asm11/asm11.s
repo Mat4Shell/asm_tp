@@ -35,6 +35,8 @@ _start:
     je .inc_vowel
     cmp al, 'u'
     je .inc_vowel
+    cmp al, 'y'
+    je .inc_vowel
 
     ; vérifier voyelles majuscules
     cmp al, 'A'
@@ -46,6 +48,8 @@ _start:
     cmp al, 'O'
     je .inc_vowel
     cmp al, 'U'
+    je .inc_vowel
+    cmp al, 'Y'
     je .inc_vowel
 
     jmp .next_char
