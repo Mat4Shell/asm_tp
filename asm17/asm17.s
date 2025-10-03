@@ -1,127 +1,112 @@
 ; asm17.asm
-; Caesar cipher implementation
-; Exemple :
-;   echo "hello" | ./asm17 3   => khoor
-;   echo "abcXYZ" | ./asm17 2  => cdeZAB
+; Caesar cipher implementation (x86-64 Linux)
+; Usage:
+;   echo "hello" | ./asm17 3
+;   khoor
+;   echo $?
 
 section .bss
-    buf   resb 1024
-    shift resq 1
+    buf resb 4096       ; buffer for stdin
+    out resb 4096       ; buffer for output
 
 section .text
     global _start
 
 _start:
-    ; récupérer argc
-    mov rax, [rsp]
+    ; --- lire argc ---
+    mov rax, [rsp]       ; argc
     cmp rax, 2
     jl .no_param
-
     ; argv[1]
     mov rdi, [rsp+16]
-    call parse_number
-    mov [shift], rax
-    jmp .main_loop
-
+    jmp .parse_shift
 .no_param:
-    mov qword [shift], 0
+    xor rsi, rsi         ; shift = 0
+    jmp .read_stdin
 
-; -------------------------
-; Lecture/écriture boucle
-.main_loop:
-    mov rax, 0          ; sys_read
-    mov rdi, 0          ; stdin
-    lea rsi, [buf]
-    mov rdx, 1024
+.parse_shift:
+    ; convertir argv[1] en entier positif (base 10)
+    mov rsi, 0           ; rsi = shift
+    mov rbx, rdi         ; rbx = pointer to arg string
+.next_digit:
+    mov al, byte [rbx]
+    cmp al, 0
+    je .shift_ready
+    sub al, '0'
+    cmp al, 9
+    ja .shift_ready
+    imul rsi, rsi, 10
+    add rsi, rax
+    inc rbx
+    jmp .next_digit
+
+.shift_ready:
+    mov rax, 26
+    xor rdx, rdx
+    div rax              ; rsi / 26
+    mov rsi, rdx         ; rsi = shift mod 26
+
+; --- lire stdin ---
+.read_stdin:
+    mov rax, 0           ; sys_read
+    mov rdi, 0           ; fd = stdin
+    mov rsi, buf
+    mov rdx, 4096
     syscall
     cmp rax, 0
     jle .exit_ok
-    mov rbx, rax        ; nb octets lus
+    mov r12, rax         ; r12 = length read
 
-    xor rcx, rcx
-.loop_chars:
-    cmp rcx, rbx
+; --- transformer ---
+    mov rcx, 0
+.loop:
+    cmp rcx, r12
     jge .write_out
 
     mov al, [buf+rcx]
-    movzx rdx, al
 
-    ; ----- minuscules -----
-    cmp dl, 'a'
+    ; si 'a' <= al <= 'z'
+    cmp al, 'a'
     jb .check_upper
-    cmp dl, 'z'
+    cmp al, 'z'
     ja .check_upper
-    sub dl, 'a'
-    mov rax, [shift]
-    add rax, rdx
-    mov rcx, 26
-    xor rdx, rdx
-    div rcx          ; rax/26 -> quotient, reste en rdx
-    mov dl, dl       ; rdx = reste
-    add dl, 'a'
-    mov [buf+rcx], dl
+    sub al, 'a'
+    add al, sil          ; add shift
+    mov bl, 26
+    div bl               ; ah = quotient, al = remainder
+    add al, 'a'
+    mov [out+rcx], al
     jmp .next_char
 
 .check_upper:
-    ; ----- majuscules -----
-    cmp dl, 'A'
-    jb .store_same
-    cmp dl, 'Z'
-    ja .store_same
-    sub dl, 'A'
-    mov rax, [shift]
-    add rax, rdx
-    mov rcx, 26
-    xor rdx, rdx
-    div rcx
-    mov dl, dl
-    add dl, 'A'
-    mov [buf+rcx], dl
+    cmp al, 'A'
+    jb .no_change
+    cmp al, 'Z'
+    ja .no_change
+    sub al, 'A'
+    add al, sil
+    mov bl, 26
+    div bl
+    add al, 'A'
+    mov [out+rcx], al
     jmp .next_char
 
-.store_same:
-    mov [buf+rcx], al
+.no_change:
+    mov [out+rcx], al
 
 .next_char:
     inc rcx
-    jmp .loop_chars
+    jmp .loop
 
+; --- write stdout ---
 .write_out:
-    mov rax, 1
+    mov rax, 1           ; sys_write
     mov rdi, 1
-    lea rsi, [buf]
-    mov rdx, rbx
+    mov rsi, out
+    mov rdx, r12
     syscall
-    jmp .main_loop
 
 .exit_ok:
     mov rax, 60
     xor rdi, rdi
-    syscall
-
-; --------------------------------
-; parse_number: ascii -> int
-; IN: rdi = ptr
-; OUT: rax = valeur
-; si non-digit -> exit(1)
-parse_number:
-    xor rax, rax
-.parse_loop:
-    mov bl, byte [rdi]
-    cmp bl, 0
-    je .done
-    cmp bl, '0'
-    jb .bad
-    cmp bl, '9'
-    ja .bad
-    sub bl, '0'
-    imul rax, rax, 10
-    add rax, rbx
-    inc rdi
-    jmp .parse_loop
-.done:
-    ret
-.bad:
-    mov rax, 60
-    mov rdi, 1
     syscall
