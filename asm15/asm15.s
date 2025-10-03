@@ -64,10 +64,10 @@ _start:
 
 .no_param:
     mov rax, 60
-    mov rdi, 2             ; exit(2)
+    mov rdi, 1             ; exit(2)
     syscall
 
 .error_open:
     mov rax, 60
-    mov rdi, 3             ; exit(3)
+    mov rdi, 1             ; exit(3)
     syscall
